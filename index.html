@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Boston Map — People, Businesses, Mosques</title>
+
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { position: fixed; inset: 0; }
+
+    /* Popup styling */
+    .mapboxgl-popup { max-width: 320px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .popup-card { display: grid; gap: 6px; }
+    .popup-title { font-weight: 700; font-size: 16px; line-height: 1.2; }
+    .popup-meta { font-size: 13px; line-height: 1.35; color: #111; }
+    .pill {
+      display: inline-block;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f2f2f2;
+      width: fit-content;
+    }
+
+    /* Custom markers */
+    .marker {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: 0 6px 18px rgba(0,0,0,.25);
+      border: 2px solid rgba(255,255,255,.85);
+      cursor: pointer;
+      user-select: none;
+    }
+    .marker-person   { background: #2563eb; } /* blue */
+    .marker-business { background: #f59e0b; } /* amber */
+    .marker-mosque   { background: #16a34a; } /* green */
+
+    /* Small legend */
+    .legend {
+      position: fixed;
+      left: 14px;
+      top: 14px;
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.12);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-size: 13px;
+      display: grid;
+      gap: 8px;
+    }
+    .legend-row { display: flex; align-items: center; gap: 8px; }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.15);
+    }
+    .dot-person   { background:#2563eb; }
+    .dot-business { background:#f59e0b; }
+    .dot-mosque   { background:#16a34a; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="legend">
+    <div><strong>Boston Directory</strong></div>
+    <div class="legend-row"><span class="legend-dot dot-person"></span> Person</div>
+    <div class="legend-row"><span class="legend-dot dot-business"></span> Business</div>
+    <div class="legend-row"><span class="legend-dot dot-mosque"></span> Mosque</div>
+  </div>
+
+  <script>
+    // 1) Put your Mapbox token here
+    mapboxgl.accessToken = "pk.eyJ1IjoiYWhtZWRtbm91ZmFsIiwiYSI6ImNtbHYybzY4NTAzdnAzZ29wZ294bmlkbHIifQ.xe1-UbaRabU7VedtTODjDg";
+
+    // 2) Create the map
+    const map = new mapboxgl.Map({
+      container: "map",
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: [-71.0589, 42.3601], // Boston
+      zoom: 12
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    // 3) Example pins (4 total, using 3 types: person, business, mosque)
+    const pins = [
+      {
+        type: "person",
+        personName: "Ahmad Nofal",
+        businessName: "APIS Strategy & Consulting",
+        phone: "(617) 555-0123",
+        businessType: "Business Consulting",
+        lngLat: [-71.0570, 42.3603] // Downtown
+      },
+      {
+        type: "business",
+        personName: "Sarah K.",
+        businessName: "Boston Home Repairs",
+        phone: "(617) 555-0188",
+        businessType: "Handyman / Repairs",
+        lngLat: [-71.0708, 42.3473] // Back Bay-ish
+      },
+      {
+        type: "mosque",
+        personName: "Community Office",
+        businessName: "Islamic Society of Boston Cultural Center",
+        phone: "(617) 555-0144",
+        businessType: "Mosque / Community Center",
+        lngLat: [-71.0832, 42.3399] // Roxbury area
+      },
+      {
+        type: "business",
+        personName: "Mohammed A.",
+        businessName: "Halal Market & Grill",
+        phone: "(617) 555-0199",
+        businessType: "Grocery / Restaurant",
+        lngLat: [-71.1003, 42.3736] // Cambridge side
+      }
+    ];
+
+    function markerIcon(type) {
+      // Feel free to change icons:
+      // person => 👤, business => 🏢, mosque => 🕌
+      if (type === "person") return "👤";
+      if (type === "mosque") return "🕌";
+      return "🏢";
+    }
+
+    function typeLabel(type) {
+      if (type === "person") return "Person";
+      if (type === "mosque") return "Mosque";
+      return "Business";
+    }
+
+    function markerClass(type) {
+      if (type === "person") return "marker marker-person";
+      if (type === "mosque") return "marker marker-mosque";
+      return "marker marker-business";
+    }
+
+    function popupHTML(pin) {
+      return `
+        <div class="popup-card">
+          <div class="popup-title">${pin.businessName}</div>
+          <div class="pill">${typeLabel(pin.type)}</div>
+          <div class="popup-meta"><strong>Person:</strong> ${pin.personName}</div>
+          <div class="popup-meta"><strong>Phone:</strong> <a href="tel:${pin.phone.replace(/[^0-9+]/g,'')}">${pin.phone}</a></div>
+          <div class="popup-meta"><strong>Business Type:</strong> ${pin.businessType}</div>
+        </div>
+      `;
+    }
+
+    // 4) Add markers
+    map.on("load", () => {
+      const bounds = new mapboxgl.LngLatBounds();
+
+      pins.forEach((pin) => {
+        const el = document.createElement("div");
+        el.className = markerClass(pin.type);
+        el.textContent = markerIcon(pin.type);
+
+        const popup = new mapboxgl.Popup({ offset: 18 })
+          .setHTML(popupHTML(pin));
+
+        new mapboxgl.Marker(el)
+          .setLngLat(pin.lngLat)
+          .setPopup(popup)
+          .addTo(map);
+
+        bounds.extend(pin.lngLat);
+      });
+
+      // Zoom map to include all pins (with padding)
+      map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
+    });
+  </script>
+</body>
+</html>
